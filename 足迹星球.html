@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小特安的存钱罐</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            background-color: #d1262d; 
+            margin: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .jar-wrapper { position: relative; width: 135px; height: 155px; margin: 0 auto; }
+        .jar-cork {
+            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+            width: 80px; height: 26px; background-color: #E2AD75;
+            border: 3px solid #4A3219; border-radius: 4px 4px 2px 2px; z-index: 10;
+            box-shadow: inset 0 4px 0 rgba(255,255,255,0.2), inset 0 -4px 0 rgba(0,0,0,0.1);
+        }
+        .jar-cork::after { content: ''; position: absolute; bottom: 4px; left: 0; width: 100%; height: 2px; background-color: #BC8551; }
+        .jar-neck {
+            position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+            width: 90px; height: 14px; background-color: #ffecd9;
+            border: 3px solid #4A3219; border-radius: 8px; z-index: 9;
+        }
+        .jar-body {
+            position: absolute; top: 10px; left: 0; width: 100%; height: 100%;
+            background-color: #FCFAEF; border: 3px solid #4A3219;
+            border-radius: 32px 32px 42px 42px; overflow: hidden; z-index: 5;
+            box-shadow: inset -8px -8px 0 rgba(220, 200, 170, 0.2), inset 6px 0 0 rgba(255, 255, 255, 0.9);
+            transform: translateZ(0); 
+        }
+
+        .liquid {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background-color: #F8C331;
+            transition: height 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translate3d(0, 0, 0);
+            will-change: height;
+        }
+        
+        .wave {
+            position: absolute; left: 0; width: 200%; 
+            transform-origin: bottom center; will-change: transform;
+        }
+
+        .wave-back {
+            bottom: 100%; 
+            height: 14px; 
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,14 50,10 T100,10 L100,20 L0,20 Z' fill='%23DF9B16'/%3E%3C/svg%3E") repeat-x;
+            background-size: 50% 100%; 
+            animation: moveWave 4s linear infinite; 
+            opacity: 0.9;
+        }
+
+        .wave-front {
+            bottom: calc(100% - 2px); 
+            height: 12px; 
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,13 50,10 T100,10 L100,20 L0,20 Z' fill='%23F8C331'/%3E%3C/svg%3E") repeat-x;
+            background-size: 50% 100%;
+            animation: moveWave 2.8s linear infinite; 
+        }
+
+        @keyframes moveWave { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
+
+        ::-webkit-scrollbar { display: none; }
+
+        .dropdown-enter-active, .dropdown-leave-active { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); transform-origin: top right; }
+        .dropdown-enter-from, .dropdown-leave-to { opacity: 0; transform: scale(0.95) translateY(-5px); }
+        .modal-enter-active, .modal-leave-active { transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .modal-enter-from, .modal-leave-to { transform: translateY(100%); opacity: 0; }
+        .toast-enter-active, .toast-leave-active { transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -30px) scale(0.9); }
+    </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col">
+    <div id="app" class="max-w-md mx-auto h-full flex flex-col w-full relative">
+        
+        <transition name="toast">
+            <div v-if="showToast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-[#FCFAEF] text-gray-800 px-5 py-3 rounded-full shadow-2xl z-50 flex items-center gap-3 border-2 border-[#4A3219] min-w-max text-sm">
+                <span class="text-2xl">{{ toastEmoji }}</span>
+                <p class="font-bold">{{ toastMsg }}</p>
+            </div>
+        </transition>
+
+        <header class="pt-4 pb-3 px-4 flex justify-between items-center z-30 shrink-0">
+            <div class="text-white overflow-hidden pr-2 flex-1">
+                <h1 class="text-xl font-extrabold tracking-wide truncate">小特安的存钱罐</h1>
+                <p class="text-xs opacity-90 mt-0.5 truncate">迎财神！进度+++</p>
+            </div>
+            
+            <div class="flex items-center gap-1.5 relative shrink-0">
+                <div class="relative">
+                    <button @click="isDropdownOpen = !isDropdownOpen" class="bg-white text-gray-800 text-sm font-bold rounded-lg py-1.5 pl-3 pr-2 shadow-sm flex items-center gap-1 transition active:bg-gray-50 border border-transparent">
+                        <span class="max-w-[90px] truncate">{{ currentBank?.name }}</span>
+                        <svg class="w-4 h-4 text-gray-500 transition-transform duration-200" :class="{ 'rotate-180': isDropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+
+                    <transition name="dropdown">
+                        <div v-if="isDropdownOpen" class="absolute right-0 mt-1.5 min-w-[160px] bg-white rounded-lg shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 overflow-hidden z-50">
+                            <ul class="py-1">
+                                <li v-for="(bank, index) in banks" :key="bank.id" @click="selectBank(bank.id)" class="px-3 py-2.5 text-sm font-bold text-gray-700 hover:bg-[#FFF0F0] active:bg-[#FFE0E0] cursor-pointer transition flex items-center justify-between group">
+                                    <div class="flex items-center gap-1 flex-1 min-w-0 pr-2">
+                                        <span :class="currentBankId === bank.id ? 'text-[#C8161D]' : ''" class="truncate">{{ bank.name }}</span>
+                                        <span v-if="currentBankId === bank.id" class="text-[#C8161D] flex-shrink-0">✓</span>
+                                    </div>
+                                    <div class="flex items-center gap-0.5 flex-shrink-0">
+                                        <button v-if="index > 0" @click.stop="moveBank(index, -1)" class="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-800 rounded transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg></button>
+                                        <button v-if="index < banks.length - 1" @click.stop="moveBank(index, 1)" class="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-800 rounded transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg></button>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </transition>
+                </div>
+                
+                <div v-if="isDropdownOpen" @click="isDropdownOpen = false" class="fixed inset-0 z-40"></div>
+
+                <button @click="showNewBankModal = true" class="bg-white text-[#C8161D] w-8 h-8 flex items-center justify-center rounded-lg font-bold shadow-sm active:bg-gray-50 transition text-lg">
+                    ＋
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 bg-[#FDF8F2] rounded-t-3xl shadow-[0_-10px_20px_rgba(0,0,0,0.15)] flex flex-col p-5 relative z-20 overflow-hidden">
+            
+            <div class="flex flex-row justify-between items-center gap-4 mb-5 mt-6 shrink-0">
+                <div class="w-5/12 flex flex-col items-center">
+                    <div class="jar-wrapper">
+                        <div class="jar-cork"></div>
+                        <div class="jar-neck"></div>
+                        <div class="jar-body">
+                            <div class="liquid" :style="{ height: Math.min(progress, 105) + '%' }">
+                                <div class="wave wave-back"></div>
+                                <div class="wave wave-front"></div>
+                            </div>
+                            
+                            <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                <span class="text-2xl font-black text-white" style="text-shadow: 0 2px 6px rgba(0,0,0,0.25);">
+                                    {{ progress }}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-3 font-bold">目标: ¥{{ currentBank?.target?.toLocaleString() || 0 }}</p>
+                </div>
+
+                <div class="w-7/12 flex flex-col justify-center">
+                    <div class="bg-white/60 p-4 rounded-xl border border-gray-100 mb-3 text-center shadow-sm">
+                        <p class="text-xs text-gray-500 mb-1">当前总资产</p>
+                        <p :class="['text-3xl font-black', progress >= 100 ? 'text-[#C8161D]' : 'text-gray-800']">
+                            ¥{{ totalAssets.toLocaleString() }}
+                        </p>
+                    </div>
+                    <button @click="openAssetModal()" class="w-full bg-[#d1262d] text-white py-3 rounded-xl font-bold text-sm shadow-md active:bg-red-800 active:scale-[0.98] transition border-0">
+                        ＋ 记录新变动
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col flex-1 min-h-0 mt-2">
+                <div class="flex justify-between items-center mb-3 px-1 shrink-0">
+                    <h3 class="font-bold text-gray-800 text-base">资产列表</h3>
+                    <button @click="showHistoryModal = true" class="flex items-center gap-1 text-xs font-bold text-gray-600 bg-white/60 px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 active:bg-gray-100 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        操作历史
+                    </button>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-3 pb-4">
+                    <div v-for="(asset, index) in currentBank?.assets" :key="asset.id" 
+                         @click="openAssetModal(asset)"
+                         :class="['p-4 rounded-xl cursor-pointer transition active:scale-[0.98] border border-black/5 flex flex-col justify-center shrink-0 shadow-sm', dopamineColors[index % dopamineColors.length]]">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-gray-800 text-base">{{ asset.name }}</span>
+                            <span class="font-black text-gray-900 text-xl">¥{{ asset.amount.toLocaleString() }}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 opacity-90 mt-0.5">{{ asset.note || '暂无备注' }}</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div v-if="showNewBankModal" class="absolute inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-5">
+            <div class="bg-white rounded-2xl p-5 w-full max-w-sm shadow-xl border-2 border-gray-800">
+                <h2 class="text-lg font-bold mb-4 text-gray-800">新建存钱罐</h2>
+                <div class="space-y-3 mb-5">
+                    <div>
+                        <label class="text-xs font-bold text-gray-600 mb-1 block">存钱罐名称</label>
+                        <input v-model="newBank.name" placeholder="如: 换车基金" class="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-lg outline-none focus:border-[#C8161D] text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-600 mb-1 block">目标金额 (¥)</label>
+                        <input v-model.number="newBank.target" type="number" placeholder="输入整数金额" class="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-lg outline-none focus:border-[#C8161D] text-sm">
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <button @click="showNewBankModal = false" class="flex-1 py-3 bg-gray-200 rounded-lg font-bold text-gray-700 text-sm active:bg-gray-300">取消</button>
+                    <button @click="addBank" class="flex-1 py-3 bg-[#C8161D] rounded-lg font-bold text-white text-sm shadow-md active:bg-red-800 border-0">确定</button>
+                </div>
+            </div>
+        </div>
+
+        <transition name="modal">
+            <div v-if="showAssetModal" class="absolute inset-0 bg-gray-900/60 z-50 flex flex-col justify-end">
+                <div class="bg-[#ffecd9] rounded-t-3xl p-5 w-full shadow-2xl border-t-2 border-gray-800">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold text-gray-800">{{ editingAsset.id ? '修改资产' : '新增资产' }}</h2>
+                        <button @click="showAssetModal = false" class="text-gray-400 font-bold text-2xl px-2 active:scale-90 transition">×</button>
+                    </div>
+                    
+                    <input v-model="editingAsset.name" placeholder="资产名称 (如: 招商银行)" class="w-full mb-3 p-3 bg-white border-2 border-gray-200 rounded-xl outline-none text-sm focus:border-[#C8161D]">
+                    
+                    <div class="relative mb-3">
+                        <span class="absolute left-4 top-3 text-gray-500 font-bold text-xl">¥</span>
+                        <input v-model="calcDisplay" readonly class="w-full p-3 pl-10 bg-white border-2 border-gray-200 rounded-xl outline-none text-right font-black text-2xl text-gray-800 tracking-wider">
+                    </div>
+                    
+                    <input v-model="editingAsset.note" placeholder="修改备注 (选填)" class="w-full mb-5 p-3 bg-white border-2 border-gray-200 rounded-xl outline-none text-sm focus:border-[#C8161D]">
+
+                    <div class="grid grid-cols-4 gap-2 mb-4">
+                        <button @click="calcPush('7')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">7</button>
+                        <button @click="calcPush('8')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">8</button>
+                        <button @click="calcPush('9')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">9</button>
+                        <button @click="calcPush('/')" class="bg-gray-100 border-2 border-gray-200 text-gray-800 p-3 rounded-xl font-bold text-xl active:bg-gray-200">÷</button>
+                        
+                        <button @click="calcPush('4')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">4</button>
+                        <button @click="calcPush('5')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">5</button>
+                        <button @click="calcPush('6')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">6</button>
+                        <button @click="calcPush('*')" class="bg-gray-100 border-2 border-gray-200 text-gray-800 p-3 rounded-xl font-bold text-xl active:bg-gray-200">×</button>
+                        
+                        <button @click="calcPush('1')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">1</button>
+                        <button @click="calcPush('2')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">2</button>
+                        <button @click="calcPush('3')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">3</button>
+                        <button @click="calcPush('-')" class="bg-gray-100 border-2 border-gray-200 text-gray-800 p-3 rounded-xl font-bold text-xl active:bg-gray-200">-</button>
+                        
+                        <button @click="calcPush('.')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-black text-2xl active:bg-gray-100">.</button>
+                        <button @click="calcPush('0')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">0</button>
+                        <button @click="calcPush('=')" class="bg-[#d1262d] text-white p-3 rounded-xl font-bold text-2xl active:bg-red-800 border-0">=</button>
+                        <button @click="calcPush('+')" class="bg-gray-100 border-2 border-gray-200 text-gray-800 p-3 rounded-xl font-bold text-xl active:bg-gray-200">+</button>
+                    </div>
+
+                    <div class="flex gap-2 mt-2">
+                        <button v-if="editingAsset.id" @click="deleteAsset" class="py-4 px-5 bg-gray-100 text-red-600 rounded-xl font-bold text-lg active:bg-gray-200">删除</button>
+                        <button @click="saveAsset" class="flex-1 py-4 bg-[#d1262d] text-white rounded-xl font-bold text-lg shadow-md active:bg-red-800 border-0">保存记录</button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <transition name="modal">
+            <div v-if="showHistoryModal" class="absolute inset-0 bg-gray-900/60 z-50 flex flex-col justify-end">
+                <div class="bg-[#FDF8F2] rounded-t-3xl p-5 w-full h-[80%] shadow-2xl border-t-2 border-gray-800 flex flex-col">
+                    <div class="flex justify-between items-center mb-5 shrink-0">
+                        <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                            操作历史
+                        </h2>
+                        <button @click="showHistoryModal = false" class="text-gray-400 font-bold text-3xl px-2 active:scale-90 transition">×</button>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto pr-2 pb-4">
+                        <div v-if="currentBank?.history.length === 0" class="text-center text-sm text-gray-400 py-10 mt-10">
+                            <div class="text-4xl mb-3 opacity-50">📭</div>
+                            这里空空如也，快去记录第一笔变动吧
+                        </div>
+                        <div class="space-y-4">
+                            <div v-for="log in sortedHistory" :key="log.time" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                                <div class="flex justify-between text-gray-500 mb-2 border-b border-gray-100 pb-2">
+                                    <span class="font-bold text-sm text-gray-700">{{ log.assetName }} · {{ log.action }}</span>
+                                    <span class="text-xs">{{ formatTime(log.time) }}</span>
+                                </div>
+                                <div class="text-gray-800 text-sm flex items-center gap-2 flex-wrap">
+                                    <span class="line-through text-gray-400">¥{{ log.before.toLocaleString() }}</span> 
+                                    <span class="text-gray-300">➡</span> 
+                                    <span class="font-bold text-lg text-[#C8161D]">¥{{ log.after.toLocaleString() }}</span>
+                                    
+                                    <span v-if="(log.after - log.before) !== 0" 
+                                          :class="(log.after - log.before) > 0 ? 'text-green-600 bg-green-50 border-green-200' : 'text-gray-500 bg-gray-100 border-gray-200'" 
+                                          class="ml-auto px-2 py-0.5 rounded-md border text-xs font-bold">
+                                        {{ (log.after - log.before) > 0 ? '+' : '' }}{{ (log.after - log.before).toLocaleString() }}
+                                    </span>
+                                </div>
+                                <div v-if="log.note" class="text-gray-600 mt-2 text-xs bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                    📝 备注：{{ log.note }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed, reactive, watch, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const dopamineColors = ['bg-[#fff2cc]', 'bg-[#e6f3e1]', 'bg-[#e0eaf3]', 'bg-[#e8e2f6]', 'bg-[#f9e2e2]', 'bg-[#f9cb9c]', 'bg-[#d9d2e9]'];
+                const banks = ref([]);
+                const currentBankId = ref(null);
+                const isDropdownOpen = ref(false); 
+                const showHistoryModal = ref(false);
+
+                const showToast = ref(false);
+                const toastMsg = ref('');
+                const toastEmoji = ref('');
+                const encouragements = [
+                    { t: "好耶！离目标更近一步！", e: "🎉" },
+                    { t: "财神爷给你点了个大大的赞！", e: "🥳" },
+                    { t: "好棒，小金库越来越鼓啦！", e: "💰" },
+                    { t: "富婆小特安！冲冲冲！", e: "✨" }
+                ];
+
+                onMounted(() => {
+                    const savedBanks = localStorage.getItem('piggy_banks_v6_stable');
+                    if (savedBanks) {
+                        banks.value = JSON.parse(savedBanks);
+                        if (banks.value.length > 0) currentBankId.value = banks.value[0].id;
+                    } else {
+                        const defaultId = Date.now();
+                        banks.value = [{
+                            id: defaultId, name: '环游欧洲基金', target: 50000,
+                            assets: [
+                                { id: 1, name: '招商银行储蓄卡', amount: 25000, note: '初始存入' },
+                                { id: 2, name: '理财账户', amount: 9250, note: '基金分红' }
+                            ], history: []
+                        }];
+                        currentBankId.value = defaultId;
+                    }
+                });
+
+                watch(banks, (newBanks) => { localStorage.setItem('piggy_banks_v6_stable', JSON.stringify(newBanks)); }, { deep: true });
+
+                const currentBank = computed(() => banks.value.find(b => b.id === currentBankId.value));
+                const selectBank = (id) => { currentBankId.value = id; isDropdownOpen.value = false; };
+
+                const moveBank = (index, direction) => {
+                    const newIndex = index + direction;
+                    if (newIndex >= 0 && newIndex < banks.value.length) {
+                        const temp = banks.value[index];
+                        banks.value[index] = banks.value[newIndex];
+                        banks.value[newIndex] = temp;
+                    }
+                };
+
+                const totalAssets = computed(() => {
+                    if (!currentBank.value) return 0;
+                    return currentBank.value.assets.reduce((sum, asset) => sum + Number(asset.amount), 0);
+                });
+
+                const progress = computed(() => {
+                    if (!currentBank.value || currentBank.value.target <= 0) return 0;
+                    let p = (totalAssets.value / currentBank.value.target) * 100;
+                    if (p === 0) return 0;
+                    return p < 1 ? parseFloat(p.toFixed(2)) : parseFloat(p.toFixed(1)); 
+                });
+
+                const sortedHistory = computed(() => {
+                    if (!currentBank.value) return [];
+                    return [...currentBank.value.history].sort((a, b) => b.time - a.time);
+                });
+
+                const showNewBankModal = ref(false);
+                const showAssetModal = ref(false);
+                const newBank = reactive({ name: '', target: '' });
+                const editingAsset = reactive({ id: null, name: '', amount: 0, note: '' });
+                const calcDisplay = ref('0');
+                const isCalculated = ref(false);
+
+                const triggerEncouragement = (increaseAmount) => {
+                    const randomMsg = encouragements[Math.floor(Math.random() * encouragements.length)];
+                    toastMsg.value = `存入 ¥${increaseAmount.toLocaleString()}！\n${randomMsg.t}`;
+                    toastEmoji.value = randomMsg.e;
+                    showToast.value = true;
+                    setTimeout(() => { showToast.value = false; }, 3000);
+                };
+
+                const addBank = () => {
+                    if (!newBank.name || !newBank.target) return alert('请填写完整信息');
+                    const id = Date.now();
+                    banks.value.unshift({ id, name: newBank.name, target: Number(newBank.target), assets: [], history: [] });
+                    currentBankId.value = id;
+                    showNewBankModal.value = false;
+                    newBank.name = ''; newBank.target = '';
+                };
+
+                const openAssetModal = (asset = null) => {
+                    if (asset) {
+                        editingAsset.id = asset.id; editingAsset.name = asset.name;
+                        editingAsset.amount = asset.amount; editingAsset.note = ''; 
+                        calcDisplay.value = String(asset.amount);
+                    } else {
+                        editingAsset.id = null; editingAsset.name = '';
+                        editingAsset.amount = 0; editingAsset.note = ''; calcDisplay.value = '0';
+                    }
+                    isCalculated.value = false; showAssetModal.value = true;
+                };
+
+                const calcPush = (val) => {
+                    if (val === 'C') { calcDisplay.value = '0'; isCalculated.value = false; } 
+                    else if (val === '=') {
+                        try {
+                            if (/^[\d\.\+\-\*\/]+$/.test(calcDisplay.value)) {
+                                let res = eval(calcDisplay.value);
+                                // 结果保留最多两位小数
+                                calcDisplay.value = String(Math.round(res * 100) / 100);
+                                isCalculated.value = true;
+                            }
+                        } catch (e) { calcDisplay.value = 'Error'; }
+                    } else if (val === '.') {
+                        // 小数点逻辑
+                        if (isCalculated.value) {
+                            calcDisplay.value = '0.';
+                            isCalculated.value = false;
+                        } else {
+                            // 找到当前正在输入的最后一个数字部分
+                            const parts = calcDisplay.value.split(/[\+\-\*\/]/);
+                            const lastPart = parts[parts.length - 1];
+                            if (!lastPart.includes('.')) {
+                                if (lastPart === '') calcDisplay.value += '0.';
+                                else calcDisplay.value += '.';
+                            }
+                        }
+                    } else {
+                        const ops = ['+', '-', '*', '/'];
+                        if (isCalculated.value && !ops.includes(val)) { calcDisplay.value = val; } 
+                        else {
+                            if (calcDisplay.value === '0' && !ops.includes(val)) { calcDisplay.value = val; } 
+                            else if (calcDisplay.value === 'Error') { calcDisplay.value = val; } 
+                            else {
+                                const last = calcDisplay.value.slice(-1);
+                                if (ops.includes(last) && ops.includes(val)) { calcDisplay.value = calcDisplay.value.slice(0, -1) + val; } 
+                                else { calcDisplay.value += val; }
+                            }
+                        }
+                        isCalculated.value = false;
+                    }
+                };
+
+                const deleteAsset = () => {
+                    if (!confirm('确定要删除这个资产吗？删除后该金额将从总资产中扣除。')) return;
+                    const bank = currentBank.value;
+                    const assetIndex = bank.assets.findIndex(a => a.id === editingAsset.id);
+                    if (assetIndex > -1) {
+                        const deletedAsset = bank.assets[assetIndex];
+                        bank.history.push({ time: Date.now(), assetName: deletedAsset.name, action: '删除记录', before: deletedAsset.amount, after: 0, note: '移除了此项资产' });
+                        bank.assets.splice(assetIndex, 1);
+                    }
+                    showAssetModal.value = false;
+                };
+
+                const saveAsset = () => {
+                    if (!editingAsset.name) return alert('请输入资产名称');
+                    calcPush('=');
+                    if (calcDisplay.value === 'Error') return alert('计算错误');
+                    const finalAmount = Number(calcDisplay.value);
+                    const time = Date.now(); const bank = currentBank.value; let amountIncreased = 0;
+                    if (editingAsset.id) {
+                        const targetAsset = bank.assets.find(a => a.id === editingAsset.id);
+                        if (!targetAsset) return;
+                        if (finalAmount > targetAsset.amount) amountIncreased = finalAmount - targetAsset.amount;
+                        if (finalAmount !== targetAsset.amount || editingAsset.name !== targetAsset.name) {
+                            bank.history.push({ time, assetName: targetAsset.name, action: '修改', before: targetAsset.amount, after: finalAmount, note: editingAsset.note });
+                            targetAsset.amount = finalAmount; targetAsset.name = editingAsset.name;
+                        }
+                    } else {
+                        if (finalAmount > 0) amountIncreased = finalAmount;
+                        bank.assets.push({ id: Date.now(), name: editingAsset.name, amount: finalAmount, note: editingAsset.note });
+                        bank.history.push({ time, assetName: editingAsset.name, action: '新增', before: 0, after: finalAmount, note: editingAsset.note });
+                    }
+                    showAssetModal.value = false;
+                    if (amountIncreased > 0) triggerEncouragement(amountIncreased);
+                };
+
+                const formatTime = (ts) => {
+                    const d = new Date(ts);
+                    return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+                };
+
+                return { banks, currentBankId, currentBank, totalAssets, progress, sortedHistory, dopamineColors, showNewBankModal, showAssetModal, showHistoryModal, newBank, addBank, openAssetModal, editingAsset, calcDisplay, calcPush, saveAsset, deleteAsset, formatTime, showToast, toastMsg, toastEmoji, isDropdownOpen, selectBank, moveBank }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
