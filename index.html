@@ -3,494 +3,490 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>小特安的存钱罐</title>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>足迹星球-give the world a hug!</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/china.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        /* 银河背景设定 (CSS模拟静态星星) */
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
-            background-color: #d1262d; 
-            margin: 0;
-            -webkit-tap-highlight-color: transparent;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; 
+            background-color: #05122b;
+            background-image: 
+                radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 1px),
+                radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 1px);
+            background-size: 550px 550px, 350px 350px;
+            background-position: 0 0, 40px 60px;
+            background-attachment: fixed;
+            color: #fff; overflow: hidden; 
         }
         
-        .jar-wrapper { position: relative; width: 135px; height: 155px; margin: 0 auto; }
-        .jar-cork {
-            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
-            width: 80px; height: 26px; background-color: #E2AD75;
-            border: 3px solid #4A3219; border-radius: 4px 4px 2px 2px; z-index: 10;
-            box-shadow: inset 0 4px 0 rgba(255,255,255,0.2), inset 0 -4px 0 rgba(0,0,0,0.1);
+        /* 开屏动画 */
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: inherit; 
+            display: flex; justify-content: center; align-items: center;
+            z-index: 9999; transition: opacity 0.8s ease;
         }
-        .jar-cork::after { content: ''; position: absolute; bottom: 4px; left: 0; width: 100%; height: 2px; background-color: #BC8551; }
-        .jar-neck {
-            position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
-            width: 90px; height: 14px; background-color: #ffecd9;
-            border: 3px solid #4A3219; border-radius: 8px; z-index: 9;
-        }
-        .jar-body {
-            position: absolute; top: 10px; left: 0; width: 100%; height: 100%;
-            background-color: #FCFAEF; border: 3px solid #4A3219;
-            border-radius: 32px 32px 42px 42px; overflow: hidden; z-index: 5;
-            box-shadow: inset -8px -8px 0 rgba(220, 200, 170, 0.2), inset 6px 0 0 rgba(255, 255, 255, 0.9);
-            transform: translateZ(0); 
-        }
-
-        .liquid {
-            position: absolute; bottom: 0; left: 0; width: 100%;
-            background-color: #F8C331;
-            transition: height 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-            transform: translate3d(0, 0, 0);
-            will-change: height;
-        }
+        #splash h1 { color: #fff; font-size: 42px; font-weight: 900; letter-spacing: 2px; text-align: center; line-height: 1.4; }
         
-        .wave {
-            position: absolute; left: 0; width: 200%; 
-            transform-origin: bottom center; will-change: transform;
-        }
+        #app { position: relative; width: 100vw; height: 100vh; background: transparent; }
+        
+        /* 顶部导航 */
+        header { position: absolute; top: 20px; width: 100%; padding: 0 20px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 10; pointer-events: none; }
+        .title-area { display: flex; flex-direction: column; color: #fff; flex-shrink: 0;}
+        .logo { font-size: 20px; font-weight: bold; margin-bottom: 2px; }
+        .slogan-title { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden;}
+        
+        .top-btns { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; pointer-events: auto; }
+        .toggle-btn { background: rgba(30, 41, 75, 0.7); border: 1px solid rgba(255,255,255,0.6); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; backdrop-filter: blur(5px); cursor: pointer; }
+        
+        #map-container { width: 100%; height: 100%; }
+        
+        /* 左下角状态 */
+        .stats-corner { position: absolute; bottom: 30px; left: 20px; z-index: 10; pointer-events: none; background: rgba(0,0,0,0.5); padding: 10px 15px; border-radius: 12px; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.1); }
+        .stats-main { display: flex; align-items: baseline; gap: 5px; }
+        .stats-corner .number { font-size: 32px; font-weight: 900; color: #fff; }
+        .stats-corner .total { font-size: 16px; color: #ccc; font-weight: bold; }
+        .stats-corner .desc { font-size: 14px; color: #ddd; margin-top: 2px; display: flex; justify-content: space-between; gap: 15px;}
+        .stats-corner .percent { color: #00bfff; font-weight: bold; }
+        
+        /* 右下角功能区 */
+        .action-icons { position: absolute; bottom: 30px; right: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 10; align-items: flex-end; }
+        .icon-btn { display: flex; align-items: center; background: rgba(19, 27, 51, 0.75); border: 1px solid rgba(255,255,255,0.3); border-radius: 30px; padding: 10px 15px; color: #fff; cursor: pointer; backdrop-filter: blur(5px); transition: 0.2s; }
+        .icon-btn .icon { font-size: 18px; }
+        .icon-btn .text { margin-left: 8px; font-size: 14px; font-weight: bold; color: #fff; }
 
-        .wave-back {
-            bottom: 100%; 
-            height: 14px; 
-            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,14 50,10 T100,10 L100,20 L0,20 Z' fill='%23DF9B16'/%3E%3C/svg%3E") repeat-x;
-            background-size: 50% 100%; 
-            animation: moveWave 4s linear infinite; 
-            opacity: 0.9;
-        }
-
-        .wave-front {
-            bottom: calc(100% - 2px); 
-            height: 12px; 
-            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,13 50,10 T100,10 L100,20 L0,20 Z' fill='%23F8C331'/%3E%3C/svg%3E") repeat-x;
-            background-size: 50% 100%;
-            animation: moveWave 2.8s linear infinite; 
-        }
-
-        @keyframes moveWave { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
-
-        ::-webkit-scrollbar { display: none; }
-
-        .dropdown-enter-active, .dropdown-leave-active { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); transform-origin: top right; }
-        .dropdown-enter-from, .dropdown-leave-to { opacity: 0; transform: scale(0.95) translateY(-5px); }
-        .modal-enter-active, .modal-leave-active { transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .modal-enter-from, .modal-leave-to { transform: translateY(100%); opacity: 0; }
-        .toast-enter-active, .toast-leave-active { transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
-        .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -30px) scale(0.9); }
+        /* 底部抽屉式列表 */
+        #list-drawer { position: fixed; bottom: -100%; left: 0; width: 100%; height: 80vh; background: rgba(19, 27, 51, 0.95); backdrop-filter: blur(10px); border-radius: 20px 20px 0 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.8); transition: bottom 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 100; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); border-bottom: none; }
+        .drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .close-drawer { font-size: 24px; color: #aaa; cursor: pointer; }
+        .search-container { padding: 15px 20px; }
+        .search-box { width: 100%; padding: 12px 15px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.2); outline: none; background: rgba(0,0,0,0.3); color: #fff; font-size: 14px; }
+        .list-content { flex: 1; overflow-y: auto; padding: 0 20px 20px 20px; }
+        
+        /* 层级列表样式 */
+        .list-item-title { flex: 1; text-align: left; font-weight: bold; font-size: 16px; color: #fff; }
+        .province-group { margin-bottom: 10px; border-radius: 10px; background: rgba(0,0,0,0.3); overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
+        .province-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; cursor: pointer; }
+        .toggle-arrow { font-size: 12px; transition: transform 0.3s; color: #aaa; margin-left: 10px;}
+        .toggle-arrow.open { transform: rotate(90deg); }
+        
+        .city-list { display: none; background: rgba(0,0,0,0.2); }
+        .city-list.open { display: block; }
+        .city-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 14px; color: #ccc; }
+        
+        /* 五角星 */
+        .star-btn { font-size: 20px; cursor: pointer; filter: grayscale(100%); opacity: 0.3; transition: 0.3s; margin-left: 10px; }
+        .star-btn.active { filter: grayscale(0%); opacity: 1; text-shadow: 0 0 15px #ffea00; }
+        
+        #toast { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); background: #fff; color: #000; padding: 12px 24px; border-radius: 30px; font-weight: bold; opacity: 0; pointer-events: none; z-index: 1000; }
+        
+        /* 海报预览 */
+        #poster { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.95); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        #poster-content { width: 100%; border-radius: 15px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 0 30px rgba(0,191,255,0.2); }
+        
+        /* 恢复右上角关闭 X */
+        .close-poster { position: absolute; top: 20px; right: 20px; color: #fff; font-size: 36px; cursor: pointer; z-index: 2001; line-height: 1; width: 40px; height: 40px; text-align: center; }
+        .save-tip { color: #fff; margin-top: 25px; font-size: 14px; letter-spacing: 1px; }
     </style>
 </head>
-<body class="h-screen overflow-hidden flex flex-col">
-    <div id="app" class="max-w-md mx-auto h-full flex flex-col w-full relative">
-        
-        <transition name="toast">
-            <div v-if="showToast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-[#FCFAEF] text-gray-800 px-5 py-3 rounded-full shadow-2xl z-50 flex items-center gap-3 border-2 border-[#4A3219] min-w-max text-sm">
-                <span class="text-2xl">{{ toastEmoji }}</span>
-                <p class="font-bold">{{ toastMsg }}</p>
+<body>
+    <div id="splash"><h1>give the world<br>a hug!</h1></div>
+
+    <div id="app">
+        <header>
+            <div class="title-area">
+                <div class="logo">足迹星球</div>
+                <div class="slogan-title">give the world a hug!</div>
             </div>
-        </transition>
-
-        <header class="pt-4 pb-3 px-4 flex justify-between items-center z-30 shrink-0">
-            <div class="text-white overflow-hidden pr-2 flex-1">
-                <h1 class="text-xl font-extrabold tracking-wide truncate">小特安的存钱罐</h1>
-                <p class="text-xs opacity-90 mt-0.5 truncate">迎财神！进度+++</p>
-            </div>
-            
-            <div class="flex items-center gap-1.5 relative shrink-0">
-                <div class="relative">
-                    <button @click="isDropdownOpen = !isDropdownOpen" class="bg-white text-gray-800 text-sm font-bold rounded-lg py-1.5 pl-3 pr-2 shadow-sm flex items-center gap-1 transition active:bg-gray-50 border border-transparent">
-                        <span class="max-w-[90px] truncate">{{ currentBank?.name }}</span>
-                        <svg class="w-4 h-4 text-gray-500 transition-transform duration-200" :class="{ 'rotate-180': isDropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
-                    </button>
-
-                    <transition name="dropdown">
-                        <div v-if="isDropdownOpen" class="absolute right-0 mt-1.5 min-w-[160px] bg-white rounded-lg shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 overflow-hidden z-50">
-                            <ul class="py-1">
-                                <li v-for="(bank, index) in banks" :key="bank.id" @click="selectBank(bank.id)" class="px-3 py-2.5 text-sm font-bold text-gray-700 hover:bg-[#FFF0F0] active:bg-[#FFE0E0] cursor-pointer transition flex items-center justify-between group">
-                                    <div class="flex items-center gap-1 flex-1 min-w-0 pr-2">
-                                        <span :class="currentBankId === bank.id ? 'text-[#C8161D]' : ''" class="truncate">{{ bank.name }}</span>
-                                        <span v-if="currentBankId === bank.id" class="text-[#C8161D] flex-shrink-0">✓</span>
-                                    </div>
-                                    <div class="flex items-center gap-0.5 flex-shrink-0">
-                                        <button v-if="index > 0" @click.stop="moveBank(index, -1)" class="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-800 rounded transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg></button>
-                                        <button v-if="index < banks.length - 1" @click.stop="moveBank(index, 1)" class="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-800 rounded transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg></button>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                    </transition>
-                </div>
-                
-                <div v-if="isDropdownOpen" @click="isDropdownOpen = false" class="fixed inset-0 z-40"></div>
-
-                <button @click="showNewBankModal = true" class="bg-white text-[#C8161D] w-8 h-8 flex items-center justify-center rounded-lg font-bold shadow-sm active:bg-gray-50 transition text-lg">
-                    ＋
-                </button>
+            <div class="top-btns">
+                <button class="toggle-btn" id="modeToggle">切换至城市</button>
             </div>
         </header>
 
-        <main class="flex-1 bg-[#FDF8F2] rounded-t-3xl shadow-[0_-10px_20px_rgba(0,0,0,0.15)] flex flex-col p-5 relative z-20 overflow-hidden">
-            
-            <div class="flex flex-row justify-between items-center gap-4 mb-5 mt-6 shrink-0">
-                <div class="w-5/12 flex flex-col items-center">
-                    <div class="jar-wrapper">
-                        <div class="jar-cork"></div>
-                        <div class="jar-neck"></div>
-                        <div class="jar-body">
-                            <div class="liquid" :style="{ height: Math.min(progress, 105) + '%' }">
-                                <div class="wave wave-back"></div>
-                                <div class="wave wave-front"></div>
-                            </div>
-                            
-                            <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                                <span class="text-2xl font-black text-white" style="text-shadow: 0 2px 6px rgba(0,0,0,0.25);">
-                                    {{ progress }}%
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-500 mt-3 font-bold">目标: ¥{{ currentBank?.target?.toLocaleString() || 0 }}</p>
-                </div>
+        <div id="map-container"></div>
 
-                <div class="w-7/12 flex flex-col justify-center">
-                    <div class="bg-white/60 p-4 rounded-xl border border-gray-100 mb-3 text-center shadow-sm">
-                        <p class="text-xs text-gray-500 mb-1">当前总资产</p>
-                        <p :class="['text-3xl font-black', progress >= 100 ? 'text-[#C8161D]' : 'text-gray-800']">
-                            ¥{{ totalAssets.toLocaleString() }}
-                        </p>
-                    </div>
-                    <button @click="openAssetModal()" class="w-full bg-[#d1262d] text-white py-3 rounded-xl font-bold text-sm shadow-md active:bg-red-800 active:scale-[0.98] transition border-0">
-                        ＋ 记录新变动
-                    </button>
-                </div>
+        <div class="stats-corner" id="mainStats">
+            <div class="stats-main">
+                <span class="number" id="statsNumber">0</span>
+                <span class="total" id="statsTotal">/ 34</span>
             </div>
-
-            <div class="flex flex-col flex-1 min-h-0 mt-2">
-                <div class="flex justify-between items-center mb-3 px-1 shrink-0">
-                    <h3 class="font-bold text-gray-800 text-base">资产列表</h3>
-                    <button @click="showHistoryModal = true" class="flex items-center gap-1 text-xs font-bold text-gray-600 bg-white/60 px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 active:bg-gray-100 transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
-                        操作历史
-                    </button>
-                </div>
-                
-                <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-3 pb-4">
-                    <div v-for="(asset, index) in currentBank?.assets" :key="asset.id" 
-                         @click="openAssetModal(asset)"
-                         :class="['p-4 rounded-xl cursor-pointer transition active:scale-[0.98] border border-black/5 flex flex-col justify-center shrink-0 shadow-sm', dopamineColors[index % dopamineColors.length]]">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-gray-800 text-base">{{ asset.name }}</span>
-                            <span class="font-black text-gray-900 text-xl">¥{{ asset.amount.toLocaleString() }}</span>
-                        </div>
-                        <p class="text-sm text-gray-600 opacity-90 mt-0.5">{{ asset.note || '暂无备注' }}</p>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <div v-if="showNewBankModal" class="absolute inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-5">
-            <div class="bg-white rounded-2xl p-5 w-full max-w-sm shadow-xl border-2 border-gray-800">
-                <h2 class="text-lg font-bold mb-4 text-gray-800">新建存钱罐</h2>
-                <div class="space-y-3 mb-5">
-                    <div>
-                        <label class="text-xs font-bold text-gray-600 mb-1 block">存钱罐名称</label>
-                        <input v-model="newBank.name" placeholder="如: 换车基金" class="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-lg outline-none focus:border-[#C8161D] text-sm">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-gray-600 mb-1 block">目标金额 (¥)</label>
-                        <input v-model.number="newBank.target" type="number" placeholder="输入整数金额" class="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-lg outline-none focus:border-[#C8161D] text-sm">
-                    </div>
-                </div>
-                <div class="flex gap-3">
-                    <button @click="showNewBankModal = false" class="flex-1 py-3 bg-gray-200 rounded-lg font-bold text-gray-700 text-sm active:bg-gray-300">取消</button>
-                    <button @click="addBank" class="flex-1 py-3 bg-[#C8161D] rounded-lg font-bold text-white text-sm shadow-md active:bg-red-800 border-0">确定</button>
-                </div>
+            <div class="desc" id="statsDesc">
+                <span>已点亮省份</span>
+                <span class="percent" id="statsPercent">0%</span>
             </div>
         </div>
 
-        <transition name="modal">
-            <div v-if="showAssetModal" class="absolute inset-0 bg-gray-900/60 z-50 flex flex-col justify-end">
-                <div class="bg-[#ffecd9] rounded-t-3xl p-5 w-full shadow-2xl border-t-2 border-gray-800">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-bold text-gray-800">{{ editingAsset.id ? '修改资产' : '新增资产' }}</h2>
-                        <button @click="showAssetModal = false" class="text-gray-400 font-bold text-2xl px-2 active:scale-90 transition">×</button>
-                    </div>
-                    
-                    <input v-model="editingAsset.name" placeholder="资产名称 (如: 招商银行)" class="w-full mb-3 p-3 bg-white border-2 border-gray-200 rounded-xl outline-none text-sm focus:border-[#C8161D]">
-                    
-                    <div class="relative mb-3">
-                        <span class="absolute left-4 top-3 text-gray-500 font-bold text-xl">¥</span>
-                        <input v-model="calcDisplay" readonly class="w-full p-3 pl-10 bg-white border-2 border-gray-200 rounded-xl outline-none text-right font-black text-2xl text-gray-800 tracking-wider">
-                    </div>
-                    
-                    <input v-model="editingAsset.note" placeholder="修改备注 (选填)" class="w-full mb-5 p-3 bg-white border-2 border-gray-200 rounded-xl outline-none text-sm focus:border-[#C8161D]">
-
-                    <div class="grid grid-cols-4 gap-2 mb-4">
-                        <button @click="calcPush('7')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">7</button>
-                        <button @click="calcPush('8')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">8</button>
-                        <button @click="calcPush('9')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">9</button>
-                        <button @click="calcPush('/')" class="bg-gray-100 border-2 border-gray-200 text-gray-800 p-3 rounded-xl font-bold text-xl active:bg-gray-200">÷</button>
-                        
-                        <button @click="calcPush('4')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">4</button>
-                        <button @click="calcPush('5')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">5</button>
-                        <button @click="calcPush('6')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">6</button>
-                        <button @click="calcPush('*')" class="bg-gray-100 border-2 border-gray-200 text-gray-800 p-3 rounded-xl font-bold text-xl active:bg-gray-200">×</button>
-                        
-                        <button @click="calcPush('1')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">1</button>
-                        <button @click="calcPush('2')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">2</button>
-                        <button @click="calcPush('3')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">3</button>
-                        <button @click="calcPush('-')" class="bg-gray-100 border-2 border-gray-200 text-gray-800 p-3 rounded-xl font-bold text-xl active:bg-gray-200">-</button>
-                        
-                        <button @click="calcPush('.')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-black text-2xl active:bg-gray-100">.</button>
-                        <button @click="calcPush('0')" class="bg-white border-2 border-gray-200 p-3 rounded-xl font-bold text-gray-800 text-lg active:bg-gray-100">0</button>
-                        <button @click="calcPush('=')" class="bg-[#d1262d] text-white p-3 rounded-xl font-bold text-2xl active:bg-red-800 border-0">=</button>
-                        <button @click="calcPush('+')" class="bg-gray-100 border-2 border-gray-200 text-gray-800 p-3 rounded-xl font-bold text-xl active:bg-gray-200">+</button>
-                    </div>
-
-                    <div class="flex gap-2 mt-2">
-                        <button v-if="editingAsset.id" @click="deleteAsset" class="py-4 px-5 bg-gray-100 text-red-600 rounded-xl font-bold text-lg active:bg-gray-200">删除</button>
-                        <button @click="saveAsset" class="flex-1 py-4 bg-[#d1262d] text-white rounded-xl font-bold text-lg shadow-md active:bg-red-800 border-0">保存记录</button>
-                    </div>
-                </div>
+        <div class="action-icons" id="mainActions">
+            <div class="icon-btn" onclick="openDrawer()">
+                <span class="icon">⭐</span>
+                <span class="text" id="starBtnText">点亮省份</span>
             </div>
-        </transition>
-
-        <transition name="modal">
-            <div v-if="showHistoryModal" class="absolute inset-0 bg-gray-900/60 z-50 flex flex-col justify-end">
-                <div class="bg-[#FDF8F2] rounded-t-3xl p-5 w-full h-[80%] shadow-2xl border-t-2 border-gray-800 flex flex-col">
-                    <div class="flex justify-between items-center mb-5 shrink-0">
-                        <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                            </svg>
-                            操作历史
-                        </h2>
-                        <button @click="showHistoryModal = false" class="text-gray-400 font-bold text-3xl px-2 active:scale-90 transition">×</button>
-                    </div>
-                    
-                    <div class="flex-1 overflow-y-auto pr-2 pb-4">
-                        <div v-if="currentBank?.history.length === 0" class="text-center text-sm text-gray-400 py-10 mt-10">
-                            <div class="text-4xl mb-3 opacity-50">📭</div>
-                            这里空空如也，快去记录第一笔变动吧
-                        </div>
-                        <div class="space-y-4">
-                            <div v-for="log in sortedHistory" :key="log.time" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                                <div class="flex justify-between text-gray-500 mb-2 border-b border-gray-100 pb-2">
-                                    <span class="font-bold text-sm text-gray-700">{{ log.assetName }} · {{ log.action }}</span>
-                                    <span class="text-xs">{{ formatTime(log.time) }}</span>
-                                </div>
-                                <div class="text-gray-800 text-sm flex items-center gap-2 flex-wrap">
-                                    <span class="line-through text-gray-400">¥{{ log.before.toLocaleString() }}</span> 
-                                    <span class="text-gray-300">➡</span> 
-                                    <span class="font-bold text-lg text-[#C8161D]">¥{{ log.after.toLocaleString() }}</span>
-                                    
-                                    <span v-if="(log.after - log.before) !== 0" 
-                                          :class="(log.after - log.before) > 0 ? 'text-green-600 bg-green-50 border-green-200' : 'text-gray-500 bg-gray-100 border-gray-200'" 
-                                          class="ml-auto px-2 py-0.5 rounded-md border text-xs font-bold">
-                                        {{ (log.after - log.before) > 0 ? '+' : '' }}{{ (log.after - log.before).toLocaleString() }}
-                                    </span>
-                                </div>
-                                <div v-if="log.note" class="text-gray-600 mt-2 text-xs bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                    📝 备注：{{ log.note }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="icon-btn" onclick="resetMap()">
+                <span class="icon">🎯</span>
+                <span class="text">重置地图</span>
             </div>
-        </transition>
+            <div class="icon-btn" onclick="generatePoster()">
+                <span class="icon">📸</span>
+                <span class="text">分享足迹</span>
+            </div>
+        </div>
+    </div>
 
+    <div id="list-drawer">
+        <div class="drawer-header">
+            <h3 id="drawerTitle">选择省份</h3>
+            <span class="close-drawer" onclick="closeDrawer()">×</span>
+        </div>
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-box" placeholder="搜索名称...">
+        </div>
+        <div class="list-content" id="locationList"></div>
+    </div>
+
+    <div id="toast"></div>
+
+    <div id="poster">
+        <div class="close-poster" onclick="closePoster()">×</div>
+        <div id="poster-content"></div>
+        <div class="save-tip">长按上方图片保存至相册</div>
     </div>
 
     <script>
-        const { createApp, ref, computed, reactive, watch, onMounted } = Vue;
+        // 全国完整的城市经纬度名录 (极致压缩版)
+        const cityData = {
+            "北京":{"北京市":[116.40,39.90]},
+            "天津":{"天津市":[117.20,39.08]},
+            "上海":{"上海市":[121.47,31.23]},
+            "重庆":{"重庆市":[106.55,29.56]},
+            "河北":{"石家庄市":[114.51,38.04],"唐山市":[118.18,39.63],"秦皇岛市":[119.60,39.93],"邯郸市":[114.53,36.62],"保定市":[115.46,38.87],"张家口市":[114.88,40.76],"承德市":[117.93,40.97],"沧州市":[116.83,38.30],"廊坊市":[116.70,39.52],"衡水市":[115.66,37.73],"邢台市":[114.50,37.07]},
+            "山西":{"太原市":[112.55,37.87],"大同市":[113.30,40.07],"阳泉市":[113.58,37.86],"长治市":[113.11,36.19],"晋城市":[112.85,35.49],"朔州市":[112.43,39.33],"晋中市":[112.75,37.68],"运城市":[111.00,35.02],"忻州市":[112.73,38.41],"临汾市":[111.51,36.08],"吕梁市":[111.13,37.53]},
+            "内蒙古":{"呼和浩特市":[111.75,40.84],"包头市":[109.84,40.65],"乌海市":[106.82,39.67],"赤峰市":[118.88,42.25],"通辽市":[122.25,43.61],"鄂尔多斯市":[109.78,39.60],"呼伦贝尔市":[119.76,49.21],"巴彦淖尔市":[107.38,40.74],"乌兰察布市":[113.13,40.99],"兴安盟":[122.05,46.08],"锡林郭勒盟":[116.07,43.93],"阿拉善盟":[105.70,38.83]},
+            "辽宁":{"沈阳市":[123.43,41.81],"大连市":[121.61,38.91],"鞍山市":[122.99,41.11],"抚顺市":[123.95,41.88],"本溪市":[123.73,41.30],"丹东市":[124.39,40.12],"锦州市":[121.13,41.09],"营口市":[122.23,40.66],"阜新市":[121.67,42.02],"辽阳市":[123.17,41.27],"盘锦市":[122.07,41.12],"铁岭市":[123.82,42.22],"朝阳市":[120.45,41.57],"葫芦岛市":[120.83,40.71]},
+            "吉林":{"长春市":[125.32,43.89],"吉林市":[126.54,43.83],"四平市":[124.35,43.16],"辽源市":[125.11,42.88],"通化市":[125.93,41.72],"白山市":[126.42,41.92],"松原市":[124.82,45.14],"白城市":[122.83,45.61],"延边朝鲜族自治州":[129.51,42.89]},
+            "黑龙江":{"哈尔滨市":[126.63,45.75],"齐齐哈尔市":[123.91,47.35],"鸡西市":[130.96,45.30],"鹤岗市":[130.29,47.33],"双鸭山市":[131.15,46.64],"大庆市":[125.03,46.58],"伊春市":[128.89,47.72],"佳木斯市":[130.31,46.80],"七台河市":[131.00,45.77],"牡丹江市":[129.63,44.55],"黑河市":[127.52,50.24],"绥化市":[126.98,46.63],"大兴安岭地区":[124.11,50.42]},
+            "江苏":{"南京市":[118.79,32.06],"无锡市":[120.31,31.49],"徐州市":[117.28,34.20],"常州市":[119.97,31.81],"苏州市":[120.58,31.29],"南通市":[120.89,32.01],"连云港市":[119.22,34.59],"淮安市":[119.01,33.61],"盐城市":[120.16,33.34],"扬州市":[119.41,32.39],"镇江市":[119.42,32.18],"泰州市":[119.92,32.45],"宿迁市":[118.27,33.96]},
+            "浙江":{"杭州市":[120.15,30.28],"宁波市":[121.54,29.87],"温州市":[120.69,27.99],"嘉兴市":[120.75,30.74],"湖州市":[120.08,30.89],"绍兴市":[120.58,30.01],"金华市":[119.64,29.07],"衢州市":[118.85,28.96],"舟山市":[122.20,29.98],"台州市":[121.42,28.65],"丽水市":[119.92,28.46]},
+            "安徽":{"合肥市":[117.22,31.82],"芜湖市":[118.37,31.32],"蚌埠市":[117.38,32.91],"淮南市":[117.02,32.64],"马鞍山市":[118.50,31.67],"淮北市":[116.79,33.95],"铜陵市":[117.81,30.93],"安庆市":[117.05,30.52],"黄山市":[118.31,29.71],"滁州市":[118.31,32.29],"阜阳市":[115.81,32.89],"宿州市":[116.98,33.63],"六安市":[116.50,31.75],"亳州市":[115.78,33.84],"池州市":[117.49,30.66],"宣城市":[118.75,30.94]},
+            "福建":{"福州市":[119.29,26.07],"厦门市":[118.08,24.47],"莆田市":[119.00,25.45],"三明市":[117.63,26.27],"泉州市":[118.67,24.87],"漳州市":[117.64,24.51],"南平市":[118.17,26.64],"龙岩市":[117.02,25.07],"宁德市":[119.54,26.66]},
+            "江西":{"南昌市":[115.85,28.68],"景德镇市":[117.17,29.29],"萍乡市":[113.85,27.62],"九江市":[115.99,29.71],"新余市":[114.91,27.81],"鹰潭市":[117.06,28.23],"赣州市":[114.93,25.82],"吉安市":[114.98,27.11],"宜春市":[114.39,27.79],"抚州市":[116.35,27.98],"上饶市":[117.96,28.44]},
+            "山东":{"济南市":[117.12,36.65],"青岛市":[120.38,36.06],"淄博市":[118.05,36.81],"枣庄市":[117.32,34.81],"东营市":[118.67,37.43],"烟台市":[121.39,37.52],"潍坊市":[119.16,36.70],"济宁市":[116.58,35.41],"泰安市":[117.08,36.20],"威海市":[122.10,37.50],"日照市":[119.52,35.41],"临沂市":[118.35,35.05],"德州市":[116.35,37.43],"聊城市":[115.98,36.45],"滨州市":[117.96,37.38],"菏泽市":[115.48,35.23]},
+            "河南":{"郑州市":[113.62,34.74],"开封市":[114.30,34.79],"洛阳市":[112.45,34.61],"平顶山市":[113.19,33.76],"安阳市":[114.39,36.09],"鹤壁市":[114.29,35.89],"新乡市":[113.92,35.30],"焦作市":[113.24,35.21],"濮阳市":[115.03,35.76],"许昌市":[113.85,34.03],"漯河市":[114.01,33.58],"三门峡市":[111.19,34.77],"南阳市":[112.52,32.99],"商丘市":[115.65,34.43],"信阳市":[114.09,32.14],"周口市":[114.69,33.62],"驻马店市":[114.02,32.98],"济源市":[112.59,35.09]},
+            "湖北":{"武汉市":[114.30,30.59],"黄石市":[115.03,30.19],"十堰市":[110.78,32.64],"宜昌市":[111.28,30.69],"襄阳市":[112.12,32.00],"鄂州市":[114.89,30.39],"荆门市":[112.20,31.03],"孝感市":[113.92,30.92],"荆州市":[112.23,30.33],"黄冈市":[114.87,30.44],"咸宁市":[114.32,29.83],"随州市":[113.37,31.71],"恩施土家族苗族自治州":[109.48,30.28],"仙桃市":[113.45,30.36],"潜江市":[112.89,30.40],"天门市":[113.16,30.65],"神农架林区":[110.67,31.74]},
+            "湖南":{"长沙市":[112.93,28.22],"株洲市":[113.13,27.82],"湘潭市":[112.94,27.82],"衡阳市":[112.57,26.89],"邵阳市":[111.46,27.23],"岳阳市":[113.13,29.37],"常德市":[111.69,29.03],"张家界市":[110.47,29.11],"益阳市":[112.35,28.56],"郴州市":[113.01,25.77],"永州市":[111.60,26.43],"怀化市":[109.99,27.55],"娄底市":[112.00,27.70],"湘西土家族苗族自治州":[109.73,28.31]},
+            "广东":{"广州市":[113.23,23.16],"深圳市":[114.07,22.62],"珠海市":[113.52,22.30],"汕头市":[116.69,23.39],"佛山市":[113.11,23.05],"韶关市":[113.59,24.80],"湛江市":[110.35,21.27],"肇庆市":[112.44,23.05],"江门市":[113.06,22.61],"茂名市":[110.88,21.68],"惠州市":[114.40,22.07],"梅州市":[116.10,24.55],"汕尾市":[115.37,22.78],"河源市":[114.68,23.73],"阳江市":[111.95,21.85],"清远市":[113.01,23.70],"东莞市":[113.75,23.04],"中山市":[113.38,22.52],"潮州市":[116.63,23.68],"揭阳市":[116.35,23.55],"云浮市":[112.02,22.93]},
+            "广西":{"南宁市":[108.36,22.81],"柳州市":[109.41,24.32],"桂林市":[110.29,25.27],"梧州市":[111.27,23.47],"北海市":[109.11,21.48],"防城港市":[108.35,21.61],"钦州市":[108.62,21.96],"贵港市":[109.59,23.09],"玉林市":[110.15,22.63],"百色市":[106.61,23.89],"贺州市":[111.55,24.41],"河池市":[108.06,24.69],"来宾市":[109.23,23.73],"崇左市":[107.35,22.39]},
+            "海南":{"海口市":[110.32,20.03],"三亚市":[109.51,18.25],"三沙市":[112.33,16.83],"儋州市":[109.58,19.52],"五指山市":[109.51,18.77],"琼海市":[110.46,19.25],"文昌市":[110.75,19.61],"万宁市":[110.38,18.79],"东方市":[108.65,19.10],"定安县":[110.32,19.68],"屯昌县":[110.10,19.36],"澄迈县":[110.00,19.73],"临高县":[109.68,19.90],"白沙黎族自治县":[109.45,19.22],"昌江黎族自治县":[109.05,19.26],"乐东黎族自治县":[109.17,18.74],"陵水黎族自治县":[110.03,18.50],"保亭黎族苗族自治县":[109.70,18.63],"琼中黎族苗族自治县":[109.83,19.03]},
+            "四川":{"成都市":[104.06,30.67],"自贡市":[104.77,29.33],"攀枝花市":[101.71,26.58],"泸州市":[105.44,28.87],"德阳市":[104.39,31.12],"绵阳市":[104.73,31.46],"广元市":[105.84,32.43],"遂宁市":[105.57,30.51],"内江市":[105.05,29.58],"乐山市":[103.76,29.58],"南充市":[106.11,30.83],"眉山市":[103.83,30.04],"宜宾市":[104.62,28.76],"广安市":[106.63,30.45],"达州市":[107.50,31.20],"雅安市":[103.00,29.98],"巴中市":[106.75,31.85],"资阳市":[104.64,30.12],"阿坝藏族羌族自治州":[102.22,31.89],"甘孜藏族自治州":[101.96,30.05],"凉山彝族自治州":[102.26,27.88]},
+            "贵州":{"贵阳市":[106.63,26.64],"六盘水市":[104.84,26.58],"遵义市":[106.92,27.72],"安顺市":[105.94,26.25],"毕节市":[105.28,27.30],"铜仁市":[109.18,27.71],"黔西南布依族苗族自治州":[104.89,25.08],"黔东南苗族侗族自治州":[107.97,26.58],"黔南布依族苗族自治州":[107.51,26.26]},
+            "云南":{"昆明市":[102.71,25.04],"曲靖市":[103.79,25.50],"玉溪市":[102.54,24.35],"保山市":[99.16,25.11],"昭通市":[103.71,27.33],"丽江市":[100.23,26.88],"普洱市":[100.97,22.78],"临沧市":[100.08,23.88],"楚雄彝族自治州":[101.52,25.04],"红河哈尼族彝族自治州":[103.38,23.36],"文山壮族苗族自治州":[104.06,23.36],"西双版纳傣族自治州":[100.79,22.00],"大理白族自治州":[100.22,25.59],"德宏傣族景颇族自治州":[98.57,24.43],"怒江傈僳族自治州":[98.85,25.85],"迪庆藏族自治州":[99.70,27.82]},
+            "西藏":{"拉萨市":[91.11,29.64],"日喀则市":[88.88,29.26],"昌都市":[97.17,31.14],"林芝市":[94.36,29.65],"山南市":[91.76,29.23],"那曲市":[92.06,31.47],"阿里地区":[80.10,32.50]},
+            "陕西":{"西安市":[108.94,34.34],"铜川市":[108.93,34.89],"宝鸡市":[107.14,34.36],"咸阳市":[108.70,34.33],"渭南市":[109.50,34.52],"延安市":[109.49,36.58],"汉中市":[107.02,33.07],"榆林市":[109.74,38.29],"安康市":[109.02,32.69],"商洛市":[109.93,33.86]},
+            "甘肃":{"兰州市":[103.82,36.05],"嘉峪关市":[98.28,39.77],"金昌市":[102.18,38.52],"白银市":[104.17,36.54],"天水市":[105.72,34.58],"武威市":[102.63,37.92],"张掖市":[100.45,38.92],"平凉市":[106.68,35.54],"酒泉市":[98.50,39.73],"庆阳市":[107.63,35.73],"定西市":[104.62,35.58],"陇南市":[104.92,33.38],"临夏回族自治州":[103.21,35.59],"甘南藏族自治州":[102.91,34.98]},
+            "青海":{"西宁市":[101.77,36.62],"海东市":[102.10,36.50],"海北藏族自治州":[100.90,36.95],"黄南藏族自治州":[102.01,35.51],"海南藏族自治州":[100.62,36.28],"果洛藏族自治州":[100.24,34.47],"玉树藏族自治州":[97.00,33.00],"海西蒙古族藏族自治州":[97.37,37.37]},
+            "宁夏":{"银川市":[106.27,38.46],"石嘴山市":[106.37,39.01],"吴忠市":[106.15,37.98],"固原市":[106.28,36.00],"中卫市":[105.18,37.51]},
+            "新疆":{"乌鲁木齐市":[87.68,43.77],"克拉玛依市":[84.87,45.59],"吐鲁番市":[89.18,42.94],"哈密市":[93.51,42.82],"昌吉回族自治州":[87.31,44.01],"博尔塔拉蒙古自治州":[82.07,44.90],"巴音郭楞蒙古自治州":[86.14,41.75],"阿克苏地区":[80.26,41.16],"克孜勒苏柯尔克孜自治州":[76.16,39.71],"喀什地区":[75.98,39.47],"和田地区":[79.92,37.11],"伊犁哈萨克自治州":[81.31,43.92],"塔城地区":[82.98,46.74],"阿勒泰地区":[88.13,47.84],"石河子市":[86.04,44.30],"阿拉尔市":[81.27,40.54],"图木舒克市":[79.07,39.86],"五家渠市":[87.52,44.16]},
+            "香港":{"香港特别行政区":[114.17,22.28]},
+            "澳门":{"澳门特别行政区":[113.54,22.19]},
+            "台湾":{"台北市":[121.50,25.04],"新北市":[121.46,25.01],"桃园市":[121.30,24.99],"台中市":[120.67,24.14],"台南市":[120.20,22.99],"高雄市":[120.31,22.62],"基隆市":[121.74,25.12],"新竹市":[120.96,24.81],"嘉义市":[120.44,23.47],"新竹县":[121.01,24.82],"苗栗县":[120.81,24.56],"彰化县":[120.54,24.07],"南投县":[120.68,23.90],"云林县":[120.52,23.70],"嘉义县":[120.29,23.45],"屏东县":[120.48,22.66],"宜兰县":[121.75,24.75],"花莲县":[121.60,23.97],"台东县":[121.14,22.75],"澎湖县":[119.56,23.56],"金门县":[118.31,24.43],"连江县":[119.95,26.15]}
+        };
 
-        createApp({
-            setup() {
-                const dopamineColors = ['bg-[#fff2cc]', 'bg-[#e6f3e1]', 'bg-[#e0eaf3]', 'bg-[#e8e2f6]', 'bg-[#f9e2e2]', 'bg-[#f9cb9c]', 'bg-[#d9d2e9]'];
-                const banks = ref([]);
-                const currentBankId = ref(null);
-                const isDropdownOpen = ref(false); 
-                const showHistoryModal = ref(false);
+        const sortedProvinces = Object.keys(cityData).sort((a, b) => a.localeCompare(b, 'zh-CN-u-co-pinyin'));
+        let currentMode = 'province';
+        let visitedProvinces = JSON.parse(localStorage.getItem('visitedProvinces')) || [];
+        let visitedCities = JSON.parse(localStorage.getItem('visitedCities')) || [];
+        let openProvinceList = new Set();
 
-                const showToast = ref(false);
-                const toastMsg = ref('');
-                const toastEmoji = ref('');
-                const encouragements = [
-                    { t: "好耶！离目标更近一步！", e: "🎉" },
-                    { t: "财神爷给你点了个大大的赞！", e: "🥳" },
-                    { t: "好棒，小金库越来越鼓啦！", e: "💰" },
-                    { t: "富婆小特安！冲冲冲！", e: "✨" }
-                ];
+        function saveData() {
+            localStorage.setItem('visitedProvinces', JSON.stringify(visitedProvinces));
+            localStorage.setItem('visitedCities', JSON.stringify(visitedCities));
+        }
 
-                onMounted(() => {
-                    const savedBanks = localStorage.getItem('piggy_banks_v6_stable');
-                    if (savedBanks) {
-                        banks.value = JSON.parse(savedBanks);
-                        if (banks.value.length > 0) currentBankId.value = banks.value[0].id;
-                    } else {
-                        const defaultId = Date.now();
-                        banks.value = [{
-                            id: defaultId, name: '环游欧洲基金', target: 50000,
-                            assets: [
-                                { id: 1, name: '招商银行储蓄卡', amount: 25000, note: '初始存入' },
-                                { id: 2, name: '理财账户', amount: 9250, note: '基金分红' }
-                            ], history: []
-                        }];
-                        currentBankId.value = defaultId;
+        setTimeout(() => {
+            const splash = document.getElementById('splash');
+            splash.style.opacity = '0';
+            setTimeout(() => splash.style.display = 'none', 800);
+        }, 2000);
+
+        const myChart = echarts.init(document.getElementById('map-container'));
+        
+        function updateMap() {
+            let series = [];
+            
+            let baseMapData = [];
+            if (currentMode === 'province') {
+                baseMapData = visitedProvinces.map(name => ({ name: name, value: 1 }));
+            } else {
+                const litProvincesInCityMode = new Set();
+                visitedCities.forEach(city => {
+                    for (let prov in cityData) {
+                        if (cityData[prov][city]) litProvincesInCityMode.add(prov);
                     }
                 });
-
-                watch(banks, (newBanks) => { localStorage.setItem('piggy_banks_v6_stable', JSON.stringify(newBanks)); }, { deep: true });
-
-                const currentBank = computed(() => banks.value.find(b => b.id === currentBankId.value));
-                const selectBank = (id) => { currentBankId.value = id; isDropdownOpen.value = false; };
-
-                const moveBank = (index, direction) => {
-                    const newIndex = index + direction;
-                    if (newIndex >= 0 && newIndex < banks.value.length) {
-                        const temp = banks.value[index];
-                        banks.value[index] = banks.value[newIndex];
-                        banks.value[newIndex] = temp;
-                    }
-                };
-
-                const totalAssets = computed(() => {
-                    if (!currentBank.value) return 0;
-                    return currentBank.value.assets.reduce((sum, asset) => sum + Number(asset.amount), 0);
-                });
-
-                const progress = computed(() => {
-                    if (!currentBank.value || currentBank.value.target <= 0) return 0;
-                    let p = (totalAssets.value / currentBank.value.target) * 100;
-                    if (p === 0) return 0;
-                    return p < 1 ? parseFloat(p.toFixed(2)) : parseFloat(p.toFixed(1)); 
-                });
-
-                const sortedHistory = computed(() => {
-                    if (!currentBank.value) return [];
-                    return [...currentBank.value.history].sort((a, b) => b.time - a.time);
-                });
-
-                const showNewBankModal = ref(false);
-                const showAssetModal = ref(false);
-                const newBank = reactive({ name: '', target: '' });
-                const editingAsset = reactive({ id: null, name: '', amount: 0, note: '' });
-                const calcDisplay = ref('0');
-                const isCalculated = ref(false);
-
-                const triggerEncouragement = (increaseAmount) => {
-                    const randomMsg = encouragements[Math.floor(Math.random() * encouragements.length)];
-                    toastMsg.value = `存入 ¥${increaseAmount.toLocaleString()}！\n${randomMsg.t}`;
-                    toastEmoji.value = randomMsg.e;
-                    showToast.value = true;
-                    setTimeout(() => { showToast.value = false; }, 3000);
-                };
-
-                const addBank = () => {
-                    if (!newBank.name || !newBank.target) return alert('请填写完整信息');
-                    const id = Date.now();
-                    banks.value.unshift({ id, name: newBank.name, target: Number(newBank.target), assets: [], history: [] });
-                    currentBankId.value = id;
-                    showNewBankModal.value = false;
-                    newBank.name = ''; newBank.target = '';
-                };
-
-                const openAssetModal = (asset = null) => {
-                    if (asset) {
-                        editingAsset.id = asset.id; editingAsset.name = asset.name;
-                        editingAsset.amount = asset.amount; editingAsset.note = ''; 
-                        calcDisplay.value = String(asset.amount);
-                    } else {
-                        editingAsset.id = null; editingAsset.name = '';
-                        editingAsset.amount = 0; editingAsset.note = ''; calcDisplay.value = '0';
-                    }
-                    isCalculated.value = false; showAssetModal.value = true;
-                };
-
-                const calcPush = (val) => {
-                    if (val === 'C') { calcDisplay.value = '0'; isCalculated.value = false; } 
-                    else if (val === '=') {
-                        try {
-                            if (/^[\d\.\+\-\*\/]+$/.test(calcDisplay.value)) {
-                                let res = eval(calcDisplay.value);
-                                // 结果保留最多两位小数
-                                calcDisplay.value = String(Math.round(res * 100) / 100);
-                                isCalculated.value = true;
-                            }
-                        } catch (e) { calcDisplay.value = 'Error'; }
-                    } else if (val === '.') {
-                        // 小数点逻辑
-                        if (isCalculated.value) {
-                            calcDisplay.value = '0.';
-                            isCalculated.value = false;
-                        } else {
-                            // 找到当前正在输入的最后一个数字部分
-                            const parts = calcDisplay.value.split(/[\+\-\*\/]/);
-                            const lastPart = parts[parts.length - 1];
-                            if (!lastPart.includes('.')) {
-                                if (lastPart === '') calcDisplay.value += '0.';
-                                else calcDisplay.value += '.';
-                            }
-                        }
-                    } else {
-                        const ops = ['+', '-', '*', '/'];
-                        if (isCalculated.value && !ops.includes(val)) { calcDisplay.value = val; } 
-                        else {
-                            if (calcDisplay.value === '0' && !ops.includes(val)) { calcDisplay.value = val; } 
-                            else if (calcDisplay.value === 'Error') { calcDisplay.value = val; } 
-                            else {
-                                const last = calcDisplay.value.slice(-1);
-                                if (ops.includes(last) && ops.includes(val)) { calcDisplay.value = calcDisplay.value.slice(0, -1) + val; } 
-                                else { calcDisplay.value += val; }
-                            }
-                        }
-                        isCalculated.value = false;
-                    }
-                };
-
-                const deleteAsset = () => {
-                    if (!confirm('确定要删除这个资产吗？删除后该金额将从总资产中扣除。')) return;
-                    const bank = currentBank.value;
-                    const assetIndex = bank.assets.findIndex(a => a.id === editingAsset.id);
-                    if (assetIndex > -1) {
-                        const deletedAsset = bank.assets[assetIndex];
-                        bank.history.push({ time: Date.now(), assetName: deletedAsset.name, action: '删除记录', before: deletedAsset.amount, after: 0, note: '移除了此项资产' });
-                        bank.assets.splice(assetIndex, 1);
-                    }
-                    showAssetModal.value = false;
-                };
-
-                const saveAsset = () => {
-                    if (!editingAsset.name) return alert('请输入资产名称');
-                    calcPush('=');
-                    if (calcDisplay.value === 'Error') return alert('计算错误');
-                    const finalAmount = Number(calcDisplay.value);
-                    const time = Date.now(); const bank = currentBank.value; let amountIncreased = 0;
-                    if (editingAsset.id) {
-                        const targetAsset = bank.assets.find(a => a.id === editingAsset.id);
-                        if (!targetAsset) return;
-                        if (finalAmount > targetAsset.amount) amountIncreased = finalAmount - targetAsset.amount;
-                        if (finalAmount !== targetAsset.amount || editingAsset.name !== targetAsset.name) {
-                            bank.history.push({ time, assetName: targetAsset.name, action: '修改', before: targetAsset.amount, after: finalAmount, note: editingAsset.note });
-                            targetAsset.amount = finalAmount; targetAsset.name = editingAsset.name;
-                        }
-                    } else {
-                        if (finalAmount > 0) amountIncreased = finalAmount;
-                        bank.assets.push({ id: Date.now(), name: editingAsset.name, amount: finalAmount, note: editingAsset.note });
-                        bank.history.push({ time, assetName: editingAsset.name, action: '新增', before: 0, after: finalAmount, note: editingAsset.note });
-                    }
-                    showAssetModal.value = false;
-                    if (amountIncreased > 0) triggerEncouragement(amountIncreased);
-                };
-
-                const formatTime = (ts) => {
-                    const d = new Date(ts);
-                    return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-                };
-
-                return { banks, currentBankId, currentBank, totalAssets, progress, sortedHistory, dopamineColors, showNewBankModal, showAssetModal, showHistoryModal, newBank, addBank, openAssetModal, editingAsset, calcDisplay, calcPush, saveAsset, deleteAsset, formatTime, showToast, toastMsg, toastEmoji, isDropdownOpen, selectBank, moveBank }
+                baseMapData = Array.from(litProvincesInCityMode).map(name => ({ name: name, value: 1 }));
             }
-        }).mount('#app')
+
+            // 省份层
+            series.push({
+                type: 'map', map: 'china', geoIndex: 0, data: baseMapData,
+                itemStyle: { 
+                    // 【修正】更明显的白色半透明边界线
+                    borderColor: 'rgba(255, 255, 255, 0.6)', 
+                    borderWidth: 2,
+                    areaColor: '#0b285f' 
+                }
+            });
+
+            // 城市层
+            if (currentMode === 'city') {
+                let scatterData = visitedCities.map(city => {
+                    for (let prov in cityData) {
+                        if (cityData[prov][city]) return { name: city, value: [...cityData[prov][city], 1] };
+                    }
+                    return null;
+                }).filter(item => item !== null);
+
+                // 【修正】呼吸灯确认为纯白，完全与省份颜色不同
+                series.push({
+                    type: 'effectScatter',
+                    coordinateSystem: 'geo',
+                    data: scatterData,
+                    symbolSize: 10,
+                    showEffectOn: 'render',
+                    rippleEffect: { brushType: 'stroke', scale: 3.5 },
+                    itemStyle: { color: '#ffffff', shadowBlur: 10, shadowColor: '#ffffff' } 
+                });
+            }
+
+            myChart.setOption({
+                tooltip: { 
+                    trigger: 'item', formatter: params => params.name ? params.name : '',
+                    backgroundColor: 'rgba(0,0,0,0.7)', textStyle: { color: '#fff' }
+                },
+                // 【修正】给 visualMap 添加 seriesIndex，确保不影响纯白色的散点图层！
+                visualMap: { show: false, min: 0, max: 1, inRange: { color: ['#0b285f', '#4c7fe9'] }, seriesIndex: [0] }, 
+                geo: { 
+                    map: 'china', roam: true, zoom: 1.2,
+                    label: { show: false }, 
+                    emphasis: { label: { show: false }, itemStyle: { areaColor: '#1e3a8a' } },
+                    itemStyle: { 
+                        areaColor: '#0c2760', 
+                        borderColor: 'rgba(255, 255, 255, 0.6)', 
+                        borderWidth: 2 
+                    }
+                }, 
+                series: series
+            }, true);
+
+            updateUI();
+        }
+
+        function updateUI() {
+            const statsNum = document.getElementById('statsNumber');
+            const statsTotal = document.getElementById('statsTotal');
+            const statsDesc = document.querySelector('#statsDesc span:first-child');
+            const statsPercent = document.getElementById('statsPercent');
+            const starText = document.getElementById('starBtnText');
+            const drawerTitle = document.getElementById('drawerTitle');
+
+            if (currentMode === 'province') {
+                let total = 34;
+                let count = visitedProvinces.length;
+                statsNum.innerText = count;
+                statsTotal.style.display = 'inline';
+                statsTotal.innerText = `/ ${total}`;
+                statsPercent.style.display = 'inline';
+                statsPercent.innerText = ((count/total)*100).toFixed(1) + '%';
+                statsDesc.innerText = '已点亮省份';
+                starText.innerText = '点亮省份';
+                drawerTitle.innerText = '选择省份';
+            } else {
+                let count = visitedCities.length;
+                statsNum.innerText = count;
+                statsTotal.style.display = 'none';
+                statsPercent.style.display = 'none';
+                statsDesc.innerText = '已点亮城市';
+                starText.innerText = '点亮城市';
+                drawerTitle.innerText = '选择城市';
+            }
+        }
+
+        function renderList(filterText = '') {
+            const listContainer = document.getElementById('locationList');
+            listContainer.innerHTML = '';
+
+            sortedProvinces.forEach(prov => {
+                let citiesInProv = Object.keys(cityData[prov]).sort((a, b) => a.localeCompare(b, 'zh-CN-u-co-pinyin'));
+                
+                if (currentMode === 'province') {
+                    if (prov.includes(filterText) || filterText === '') {
+                        const isVisited = visitedProvinces.includes(prov);
+                        listContainer.innerHTML += `
+                            <div class="list-item" style="display:flex; justify-content:space-between; align-items:center; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <span class="list-item-title">${prov}</span>
+                                <span class="star-btn ${isVisited ? 'active' : ''}" onclick="toggleVisit('${prov}', 'province', event)">⭐</span>
+                            </div>`;
+                    }
+                } 
+                else {
+                    let matchCities = citiesInProv.filter(c => c.includes(filterText) || prov.includes(filterText) || filterText === '');
+                    
+                    if (matchCities.length > 0) {
+                        let cityHtml = matchCities.map(city => {
+                            const isVisited = visitedCities.includes(city);
+                            return `
+                            <div class="city-item">
+                                <span class="city-item-title">${city}</span>
+                                <span class="star-btn ${isVisited ? 'active' : ''}" onclick="toggleVisit('${city}', 'city', event)">⭐</span>
+                            </div>`;
+                        }).join('');
+
+                        let isOpen = openProvinceList.has(prov) ? 'open' : '';
+
+                        listContainer.innerHTML += `
+                            <div class="province-group">
+                                <div class="province-header ${isOpen}" onclick="toggleProvince(this, '${prov}')">
+                                    <div style="flex:1; display:flex; align-items:center;">
+                                        <span class="prov-title" style="font-weight:bold; color:#fff;">${prov}</span>
+                                        <span style="font-size:12px; color:#aaa; margin-left:10px;">${matchCities.length} 个城市</span>
+                                    </div>
+                                    <span class="toggle-arrow ${isOpen}">▶</span>
+                                </div>
+                                <div class="city-list ${isOpen}">
+                                    ${cityHtml}
+                                </div>
+                            </div>`;
+                    }
+                }
+            });
+        }
+
+        function toggleProvince(element, provName) {
+            element.classList.toggle('open');
+            element.querySelector('.toggle-arrow').classList.toggle('open');
+            element.nextElementSibling.classList.toggle('open');
+            if(element.classList.contains('open')) { openProvinceList.add(provName); } else { openProvinceList.delete(provName); }
+        }
+
+        function toggleVisit(name, type, event) {
+            if (event) event.stopPropagation();
+            let targetArray = type === 'province' ? visitedProvinces : visitedCities;
+            const index = targetArray.indexOf(name);
+            if (index > -1) {
+                targetArray.splice(index, 1);
+                if(event) event.currentTarget.classList.remove('active');
+            } else {
+                targetArray.push(name);
+                // 【修正】文案更改
+                showToast(`点亮 ⭐ ${name}`);
+                if(event) event.currentTarget.classList.add('active');
+            }
+            saveData();
+            updateMap(); 
+            if(!event && document.getElementById('list-drawer').style.bottom === '0px') {
+                renderList(document.getElementById('searchInput').value);
+            }
+        }
+
+        myChart.on('click', params => {
+            if (currentMode === 'province' && params.componentType === 'series' && params.name && cityData[params.name]) {
+                toggleVisit(params.name, 'province', null);
+            }
+        });
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg; toast.style.opacity = '1';
+            setTimeout(() => toast.style.opacity = '0', 2000);
+        }
+
+        function openDrawer() { document.getElementById('list-drawer').style.bottom = '0'; renderList(); }
+        function closeDrawer() { document.getElementById('list-drawer').style.bottom = '-100%'; document.getElementById('searchInput').value = ''; }
+        function resetMap() { myChart.dispatchAction({ type: 'restore' }); }
+
+        document.getElementById('modeToggle').addEventListener('click', function() {
+            currentMode = currentMode === 'province' ? 'city' : 'province';
+            this.innerText = currentMode === 'province' ? '切换至城市' : '切换至省份';
+            closeDrawer();
+            updateMap();
+        });
+
+        document.getElementById('searchInput').addEventListener('input', e => renderList(e.target.value));
+        window.addEventListener('resize', () => myChart.resize());
+
+        updateMap();
+
+        // 【修正】更安全的截图分享逻辑
+        function generatePoster() {
+            const app = document.getElementById('app');
+            const header = app.querySelector('header');
+            const stats = document.getElementById('mainStats');
+            const actions = document.getElementById('mainActions');
+            
+            // 截图前物理隐藏
+            header.style.display = 'none';
+            stats.style.display = 'none';
+            actions.style.display = 'none';
+            closeDrawer(); 
+            
+            let total = 34;
+            let visitedCount = currentMode === 'province' ? visitedProvinces.length : visitedCities.length;
+            let percent = ((visitedCount / total) * 100).toFixed(1);
+
+            let statsHtml = `
+                <div style="font-size:12px; color:#eee; margin-bottom:5px;">我已点亮</div>
+                <div style="font-size:32px; font-weight:900; color:#fff; margin-bottom:10px;">${visitedCount} <span style="font-size:16px;">个${currentMode === 'province' ? '省份' : '城市'}</span></div>
+            `;
+            if (currentMode === 'province') {
+                statsHtml += `<div style="font-size:12px; color:#4c7fe9; font-weight:bold;">拥抱星球进度 ${percent}%</div>`;
+            }
+
+            const posterStatsDiv = document.createElement('div');
+            posterStatsDiv.id = 'temp-poster-stats';
+            posterStatsDiv.style.cssText = 'position:absolute; bottom:20px; left:20px; text-align:left; color:#fff; z-index:5; background:rgba(0,0,0,0.6); padding:15px; border-radius:12px; backdrop-filter:blur(5px); border: 1px solid rgba(255,255,255,0.1); display:inline-block;';
+            posterStatsDiv.innerHTML = `
+                ${statsHtml}
+                <div style="display:flex; align-items:center; margin-top:15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top:10px;">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://example.com" style="width:40px; height:40px; background:#fff; padding:3px; border-radius:5px; flex-shrink:0;">
+                    <span style="margin-left: 10px; font-size:10px; color:#ccc; line-height:1.4; white-space:nowrap;">扫码加入足迹星球<br>give the world a hug!</span>
+                </div>
+            `;
+            app.appendChild(posterStatsDiv);
+            
+            myChart.setOption({animation: false});
+
+            // 预留更长时间给浏览器渲染
+            setTimeout(() => {
+                html2canvas(app, { backgroundColor: '#000', useCORS: true }).then(canvas => {
+                    const posterContent = document.getElementById('poster-content');
+                    posterContent.innerHTML = `<img src="${canvas.toDataURL('image/png')}" style="width: 100%; display:block;">`;
+                    
+                    // 恢复
+                    document.getElementById('temp-poster-stats').remove();
+                    header.style.display = 'flex';
+                    stats.style.display = 'block';
+                    actions.style.display = 'flex';
+                    
+                    myChart.setOption({animation: true});
+                    document.getElementById('poster').style.display = 'flex';
+                }).catch(err => {
+                    // 容错机制：如果截图失败，确保UI能恢复
+                    console.error(err);
+                    document.getElementById('temp-poster-stats').remove();
+                    header.style.display = 'flex';
+                    stats.style.display = 'block';
+                    actions.style.display = 'flex';
+                    myChart.setOption({animation: true});
+                    showToast('生成分享海报失败，请重试');
+                });
+            }, 500); 
+        }
+
+        function closePoster() { document.getElementById('poster').style.display = 'none'; }
     </script>
 </body>
 </html>
